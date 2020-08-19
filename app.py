@@ -11,13 +11,12 @@ def hello():
     ascii_banner = "Welcome to CODIV Coder's Zone"
     return ascii_banner
 
-@app.route('/fetch_trials/', methods=['POST'])
+
+@app.route('/fetch_trials/', methods=['GET', 'POST'])
 def fetch_trials():
     request_data = request.get_json(force=True)
-    print('Request Data:')
-    print(request_data)
-    result = ct.fetch_data(request_data['expr'], request_data['pipelineId'])
-    return json.dumps(result)
+    status = ct.handle_request(request_data)
+    return json.dumps(status)
 
 
 if __name__ == '__main__':
