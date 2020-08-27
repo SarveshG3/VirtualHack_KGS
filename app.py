@@ -1,12 +1,11 @@
 from flask import Flask, jsonify,  Response, send_file, request
-import io
 import json
 import fetch_ClinicalTrials as ct
 
 app = Flask(__name__)
 
 
-@app.route('/')
+@app.route('/', methods=['GET'])
 def hello():
     ascii_banner = "Welcome to CODIV Coder's Zone"
     return ascii_banner
