@@ -7,7 +7,7 @@ import ast
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
 import pickle
-import threading
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -20,7 +20,8 @@ def make_call(expr, min_rnk, max_rnk = 1, fmt = 'json'):
     params = {'expr': expr, 'min_rnk': min_rnk, 'max_rnk' : max_rnk , 'fmt': fmt}
     try:
         response = requests.get(url, params = params, headers = headers, verify=False)
-
+        #print(response.encoding)
+        #print(response.status_code)
         if response.status_code >= 500:
             print('[!] [{0}] Server Error'.format(response.status_code))
             return None
@@ -54,7 +55,7 @@ def fetch_data(expr):
     try:
         clinicalData = data['FullStudiesResponse']['FullStudies']
     except Exception as e:
-        print('!!! Error: ' + str(e) +"\n Hint: Please check the submitted keyword for typos")
+        print('Error!' + str(e) +"\n Hint: Please check the submitted keyword for typos")
         raise e
     min += 100
     while (data['FullStudiesResponse']['NStudiesFound'] > min):
@@ -66,11 +67,13 @@ def fetch_data(expr):
             min += 100
         else: break
 
+    #clinicalData = [{k: v for k, v in d.items() if k.lower() != 'rank'} for d in clinicalData]
+    #df = pd.DataFrame(clinicalData)
     df = pd.json_normalize(clinicalData)
     df.rename(columns=lambda s: s.split('.')[-1].strip(), inplace=True)
     df = df[df['StudyType'].str.contains('Interventional')]
     df = df[df['Phase'].map(lambda x: exclude_phase(x, 'Phase 4'))]
-
+    #print(df.columns)
     df = df[
         ['NCTId', 'OrgFullName', 'OrgClass', 'HasExpandedAccess', 'ResponsiblePartyType', 'LeadSponsorClass', 'OversightHasDMC',
          'IsFDARegulatedDrug', 'IPDSharing', 'Phase', 'DesignPrimaryPurpose']]
@@ -103,12 +106,14 @@ def predict(row):
     row = row.values.reshape(1, -1)
     prediction = loaded_model.predict_proba(row)
     return prediction.item(0, 0)
+    #return random.randint(70, 92)
 
 
 def send_to_appian(score_data):
-    url = 'https://kpmgusdemo.appiancloud.com/suite/webapi/cciSendAnalysedData'
+    #url = 'https://kpmgusdemo.appiancloud.com/suite/webapi/cciSendAnalysedData'
+    url = 'https://kgs-india-hackathon-10-2020.appiancloud.com/suite/webapi/cciSendAnalysedData'
     headers = {'Content-Type': 'application/json',
-               'appian-api-key': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJiNGNhMWNkNy05N2E2LTRmZjAtODg2ZS1jNmJlM2Q5YTAwODgifQ.w8ect0wYDnGxgResr-8pApLpXr-yq-FzqTxCm-bmZPQ'}
+               'appian-api-key': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlMGI3NDBkZC1lNjkyLTRlOTAtODczZi1iZWM5NThlMzBiODUifQ.PQaVLx48wncqGojHzQYbKPTqFbkzOGeevwfJEPZj0Is'}
     try:
         response = requests.post(url, headers=headers, data=score_data, verify=True)
         print("Appian POST response code: " + str(response.status_code))
@@ -136,8 +141,9 @@ def prepare_send_result(expr, pipID):
 
 
 def handle_request(req_data):
-    threading.Thread(target=prepare_send_result, args=(req_data['expr'], req_data['pipelineId']), name="predict_result",
-                    daemon=True).start()
+    prepare_send_result(req_data['expr'], req_data['pipelineId'])
+    #threading.Thread(target=prepare_send_result, args=(req_data['expr'], req_data['pipelineId']), name="predict_result",
+    #                daemon=True).start()
     return "Data received successfully"
 
 
