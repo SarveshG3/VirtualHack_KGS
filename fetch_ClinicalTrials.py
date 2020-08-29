@@ -104,7 +104,7 @@ def prepare_data(df):
 def predict(row):
     row = row.values.reshape(1, -1)
     prediction = loaded_model.predict_proba(row)
-    return prediction.item(0, 0)
+    return prediction.item(0, 0) * 100
 
 
 def send_to_appian(score_data):
