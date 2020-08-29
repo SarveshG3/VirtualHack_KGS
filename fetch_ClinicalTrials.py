@@ -104,7 +104,10 @@ def prepare_data(df):
 def predict(row):
     row = row.values.reshape(1, -1)
     prediction = loaded_model.predict_proba(row)
-    return prediction.item(0, 0) * 100
+    pred_value = prediction.item(0, 0) * 100
+    old_min, old_max, new_min, new_max = [0, 100, 40, 100]
+    scaled_pred = ((pred_value - old_min) / (old_max - old_min)) * (new_max - new_min) + new_min
+    return scaled_pred
 
 
 def send_to_appian(score_data):
