@@ -1,7 +1,7 @@
 import requests
 import json
 import urllib3
-import random
+import threading
 import pandas as pd
 import ast
 from sklearn.preprocessing import LabelEncoder
@@ -77,7 +77,6 @@ def fetch_data(expr):
     df = df[
         ['NCTId', 'OrgFullName', 'OrgClass', 'HasExpandedAccess', 'ResponsiblePartyType', 'LeadSponsorClass', 'OversightHasDMC',
          'IsFDARegulatedDrug', 'IPDSharing', 'Phase', 'DesignPrimaryPurpose']]
-    #df['Phase'] = df['Phase'].map(lambda x: list(ast.literal_eval(x))[-1])
     return df
 
 def prepare_data(df):
@@ -106,11 +105,9 @@ def predict(row):
     row = row.values.reshape(1, -1)
     prediction = loaded_model.predict_proba(row)
     return prediction.item(0, 0)
-    #return random.randint(70, 92)
 
 
 def send_to_appian(score_data):
-    #url = 'https://kpmgusdemo.appiancloud.com/suite/webapi/cciSendAnalysedData'
     url = 'https://kgs-india-hackathon-10-2020.appiancloud.com/suite/webapi/cciSendAnalysedData'
     headers = {'Content-Type': 'application/json',
                'appian-api-key': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlMGI3NDBkZC1lNjkyLTRlOTAtODczZi1iZWM5NThlMzBiODUifQ.PQaVLx48wncqGojHzQYbKPTqFbkzOGeevwfJEPZj0Is'}
@@ -141,9 +138,9 @@ def prepare_send_result(expr, pipID):
 
 
 def handle_request(req_data):
-    prepare_send_result(req_data['expr'], req_data['pipelineId'])
-    #threading.Thread(target=prepare_send_result, args=(req_data['expr'], req_data['pipelineId']), name="predict_result",
-    #                daemon=True).start()
+    #prepare_send_result(req_data['expr'], req_data['pipelineId'])
+    threading.Thread(target=prepare_send_result, args=(req_data['expr'], req_data['pipelineId']), name="predict_result",
+                    daemon=True).start()
     return "Data received successfully"
 
 
