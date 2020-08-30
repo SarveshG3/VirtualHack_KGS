@@ -7,7 +7,7 @@ import ast
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
 import pickle
-
+import re
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -50,6 +50,7 @@ def exclude_phase(d, phase):
 
 def fetch_data(expr):
     min = 1
+    print('********Search Expression: ' + expr + '********')
     data = make_call(expr, min, 100)
     #clinicalData = pd.json_normalize(data['FullStudiesResponse']['FullStudies'])
     try:
@@ -73,28 +74,38 @@ def fetch_data(expr):
     df.rename(columns=lambda s: s.split('.')[-1].strip(), inplace=True)
     df = df[df['StudyType'].str.contains('Interventional')]
     df = df[df['Phase'].map(lambda x: exclude_phase(x, 'Phase 4'))]
+    #df.to_excel('ClinicalData_Covid.xlsx', "Data", index=False)
     #print(df.columns)
-    df = df[
-        ['NCTId', 'OrgFullName', 'OrgClass', 'HasExpandedAccess', 'ResponsiblePartyType', 'LeadSponsorClass', 'OversightHasDMC',
-         'IsFDARegulatedDrug', 'IPDSharing', 'Phase', 'DesignPrimaryPurpose']]
+    df = df[['NCTId', 'OrgFullName', 'OrgClass', 'BriefTitle', 'OfficialTitle', 'ArmGroup', 'HasExpandedAccess',
+             'ResponsiblePartyType', 'LeadSponsorClass', 'Phase', 'DesignInterventionModel']]
     return df
+
+
+def encodeTitle(inText):
+    pattern = '([a-zA-Z]+[-\s_]?\d+)|dose-escalation'
+    found = re.search(pattern, inText)
+    if found:
+        return 1
+    else: return 0
+
 
 def prepare_data(df):
     df['Phase'] = df['Phase'].map(lambda x: list(ast.literal_eval(str(x).lower()))[-1])
-    # df.to_excel('ClinicalData_Processed.xlsx', "Data", index=False)
-    df = df.apply(lambda x: x.fillna('Unknown'))
+
+    df['Title'] = df.apply(lambda x: encodeTitle(str(x['BriefTitle']) + ' ' + str(x['OfficialTitle'])), axis=1)
+    df.drop(['BriefTitle', 'OfficialTitle'], inplace=True, axis=1)
+    df['ArmGroup'] = df['ArmGroup'].map(lambda x: encodeTitle(str(x)))
     df.set_index('NCTId', inplace=True)
+    df['ArmGroup'] = df.apply(lambda x: encodeTitle(str(x['ArmGroup'])), axis=1)
+    df = df.apply(lambda x: x.fillna('Unknown'))
     le = LabelEncoder()
     df['OrgFullName'] = le.fit_transform(df['OrgFullName'])
     df['OrgClass'] = le.fit_transform(df['OrgClass'])
     df['HasExpandedAccess'] = le.fit_transform(df['HasExpandedAccess'])
     df['ResponsiblePartyType'] = le.fit_transform(df['ResponsiblePartyType'])
-    df['DesignPrimaryPurpose'] = le.fit_transform(df['DesignPrimaryPurpose'])
+    df['DesignInterventionModel'] = le.fit_transform(df['DesignInterventionModel'])
     df['Phase'] = le.fit_transform(df['Phase'])
     df['LeadSponsorClass'] = le.fit_transform(df['LeadSponsorClass'])
-    df['OversightHasDMC'] = le.fit_transform(df['OversightHasDMC'])
-    df['IPDSharing'] = le.fit_transform(df['IPDSharing'])
-    df['IsFDARegulatedDrug'] = le.fit_transform(df['IsFDARegulatedDrug'])
     scaler = MinMaxScaler(copy=False)
     scaled_df = scaler.fit_transform(df)
     df = pd.DataFrame(scaled_df, columns=df.columns, index=df.index)
@@ -104,13 +115,14 @@ def prepare_data(df):
 def predict(row):
     row = row.values.reshape(1, -1)
     prediction = loaded_model.predict_proba(row)
-    pred_value = prediction.item(0, 0) * 100
+    pred_value = prediction.item(0, 1) * 100
     old_min, old_max, new_min, new_max = [0, 100, 40, 100]
     scaled_pred = ((pred_value - old_min) / (old_max - old_min)) * (new_max - new_min) + new_min
     return scaled_pred
 
 
 def send_to_appian(score_data):
+    #url = 'https://kpmgusdemo.appiancloud.com/suite/webapi/cciSendAnalysedData'
     url = 'https://kgs-india-hackathon-10-2020.appiancloud.com/suite/webapi/cciSendAnalysedData'
     headers = {'Content-Type': 'application/json',
                'appian-api-key': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlMGI3NDBkZC1lNjkyLTRlOTAtODczZi1iZWM5NThlMzBiODUifQ.PQaVLx48wncqGojHzQYbKPTqFbkzOGeevwfJEPZj0Is'}
@@ -130,7 +142,7 @@ def prepare_send_result(expr, pipID):
     global loaded_model
     trials_df = fetch_data(expr)
     model_df = prepare_data(trials_df)
-    with open('mysaved_md_pickle', 'rb') as file:
+    with open('mysaved_md_pickle2', 'rb') as file:
         loaded_model = pickle.load(file)
     model_df['aiMatchPercentage'] = [predict(row) for idx, row in model_df.iterrows()]
     model_df.reset_index(inplace=True)
@@ -148,8 +160,4 @@ def handle_request(req_data):
 
 
 if __name__ == '__main__':
-    fetch_data('covid')
-
-
-
-
+    prepare_send_result('covid', '1234')
