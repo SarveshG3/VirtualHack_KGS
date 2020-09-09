@@ -122,10 +122,9 @@ def predict(row):
 
 
 def send_to_appian(score_data):
-    #url = 'https://kpmgusdemo.appiancloud.com/suite/webapi/cciSendAnalysedData'
-    url = 'https://kgs-india-hackathon-10-2020.appiancloud.com/suite/webapi/cciSendAnalysedData'
+    url = 'https://kpmgusdemo.appiancloud.com/suite/webapi/cciSendAnalysedData'
     headers = {'Content-Type': 'application/json',
-               'appian-api-key': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJlMGI3NDBkZC1lNjkyLTRlOTAtODczZi1iZWM5NThlMzBiODUifQ.PQaVLx48wncqGojHzQYbKPTqFbkzOGeevwfJEPZj0Is'}
+               'appian-api-key': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJiNGNhMWNkNy05N2E2LTRmZjAtODg2ZS1jNmJlM2Q5YTAwODgifQ.w8ect0wYDnGxgResr-8pApLpXr-yq-FzqTxCm-bmZPQ'}
     try:
         response = requests.post(url, headers=headers, data=score_data, verify=True)
         print("Appian POST response code: " + str(response.status_code))
